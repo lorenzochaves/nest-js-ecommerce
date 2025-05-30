@@ -12,6 +12,7 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
+  // Método para registrar um novo usuário (sempre CLIENT)
   async register(registerDto: RegisterDto) {
     const { email, password, name } = registerDto;
 
@@ -27,17 +28,18 @@ export class AuthService {
     // Hash da senha
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Criar usuário
+    // Criar usuário sempre como CLIENT
     const user = await this.prisma.user.create({
       data: {
         email,
         password: hashedPassword,
         name,
+        role: 'CLIENT',
       },
     });
 
-    // Gerar token
-    const payload = { sub: user.id, email: user.email };
+    // Gerar token com role
+    const payload = { sub: user.id, email: user.email, role: user.role };
     const token = this.jwtService.sign(payload);
 
     return {
@@ -46,6 +48,7 @@ export class AuthService {
         id: user.id,
         email: user.email,
         name: user.name,
+        role: user.role,
       },
     };
   }
@@ -69,8 +72,8 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    // Gerar token
-    const payload = { sub: user.id, email: user.email };
+    // Gerar token com role
+    const payload = { sub: user.id, email: user.email, role: user.role };
     const token = this.jwtService.sign(payload);
 
     return {
@@ -79,6 +82,7 @@ export class AuthService {
         id: user.id,
         email: user.email,
         name: user.name,
+        role: user.role,
       },
     };
   }
@@ -90,7 +94,43 @@ export class AuthService {
         id: true,
         email: true,
         name: true,
+        role: true,
       },
     });
+  }
+
+  // Método para criar um novo admin (só admin pode chamar)
+  async createAdmin(email: string, password: string, name: string) {
+    // Verificar se usuário já existe
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (existingUser) {
+      throw new ConflictException('Email already exists');
+    }
+
+    // Hash da senha
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Criar admin
+    const admin = await this.prisma.user.create({
+      data: {
+        email,
+        password: hashedPassword,
+        name,
+        role: 'ADMIN',
+      },
+    });
+
+    return {
+      message: 'Admin created successfully',
+      admin: {
+        id: admin.id,
+        email: admin.email,
+        name: admin.name,
+        role: admin.role,
+      },
+    };
   }
 }
