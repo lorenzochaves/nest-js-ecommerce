@@ -72,7 +72,7 @@ $ pnpm run test:cov
 
 1. **Clone o repositório:**
 ```bash
-git clone https://github.com/seu-usuario/nest-js-ecommerce.git
+git clone https://github.com/lorenzochaves/nest-js-ecommerce.git
 cd nest-js-ecommerce
 ```
 
