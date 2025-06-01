@@ -1,145 +1,91 @@
 # 🛒 NestJS E-commerce API
 
-Uma API completa de sistema de compras online desenvolvida com NestJS, TypeScript, Prisma e SQLite.
+Uma API completa de e-commerce desenvolvida com **NestJS**, **Prisma** e **SQLite**
 
-## 📋 Descrição
-
-Este projeto é uma API RESTful para um sistema de e-commerce que permite:
-
-- ✅ Gerenciamento de usuários com autenticação JWT
-- ✅ CRUD completo de produtos
-- ✅ Sistema de carrinho de compras
-- ✅ Finalização de pedidos
-- ✅ Busca e filtragem de produtos
-
-## 🚀 Tecnologias Utilizadas
+## 🚀 Tecnologias
 
 - **[NestJS](https://nestjs.com/)** - Framework Node.js progressivo
-- **[TypeScript](https://www.typescriptlang.org/)** - Superset tipado do JavaScript
-- **[Prisma](https://www.prisma.io/)** - ORM moderno para TypeScript
-- **[SQLite](https://www.sqlite.org/)** - Banco de dados leve e eficiente
-- **[JWT](https://jwt.io/)** - Autenticação baseada em tokens
-- **[Passport](http://www.passportjs.org/)** - Middleware de autenticação
-- **[bcryptjs](https://github.com/dcodeIO/bcrypt.js)** - Hash de senhas
-
-## 🏗️ Arquitetura
-
-O projeto segue os princípios da Clean Architecture com uma estrutura modular:
-
-```
-src/
-├── auth/          # Módulo de autenticação
-├── users/         # Módulo de usuários
-├── products/      # Módulo de produtos
-├── cart/          # Módulo de carrinho
-├── orders/        # Módulo de pedidos
-└── prisma/        # Configuração do Prisma
-```
-
-## Project setup
-
-```bash
-$ pnpm install
-```
-
-## Compile and run the project
-
-```bash
-# development
-$ pnpm run start
-
-# watch mode
-$ pnpm run start:dev
-
-# production mode
-$ pnpm run start:prod
-```
-
-## Run tests
-
-```bash
-# unit tests
-$ pnpm run test
-
-# e2e tests
-$ pnpm run test:e2e
-
-# test coverage
-$ pnpm run test:cov
-```
+- **[Prisma](https://prisma.io/)** - ORM moderno para TypeScript
+- **[SQLite](https://sqlite.org/)** - Banco de dados embarcado
+- **[JWT](https://jwt.io/)** - Autenticação stateless
+- **[Swagger](https://swagger.io/)** - Documentação de API
+- **[Class Validator](https://github.com/typestack/class-validator)** - Validação de dados
+- **[Bcrypt](https://github.com/kelektiv/node.bcrypt.js)** - Hash de senhas
 
 ## 📦 Instalação
 
-1. **Clone o repositório:**
+### Pré-requisitos
+- Node.js (v18 ou superior)
+- pnpm (recomendado) ou npm
+
+### Passos
+
+1. **Clone o repositório**
 ```bash
 git clone https://github.com/lorenzochaves/nest-js-ecommerce.git
 cd nest-js-ecommerce
 ```
 
-2. **Instale as dependências:**
+2. **Setup completo: dependências + prisma + sqlite config**
 ```bash
-pnpm install
+pnpm run setup
 ```
 
-3. **Configure as variáveis de ambiente:**
+3. **Configure as variáveis de ambiente**
 ```bash
 cp .env.example .env
-# Edite o arquivo .env com suas configurações
 ```
 
-4. **Configure o banco de dados:**
-```bash
-npx prisma generate
-npx prisma db push
+Edite o arquivo `.env`:
+```env
+DATABASE_URL="file:./dev.db"
+JWT_SECRET="sua-chave-jwt-super-secreta-aqui"
 ```
 
-## 🚀 Como executar
-
+5. **Inicie o servidor**
 ```bash
-# Desenvolvimento
 pnpm run start:dev
-
-# Produção
-pnpm run build
-pnpm run start:prod
 ```
 
-A aplicação estará disponível em `http://localhost:3000`
+A API estará disponível em: http://localhost:3000
 
-## 🧪 Testes
+📚 **Documentação Swagger**: http://localhost:3000/api
 
+## 🎯 Primeiros Passos
+
+### 1. Criar o primeiro admin
 ```bash
-# Testes unitários
-pnpm run test
-
-# Testes e2e
-pnpm run test:e2e
-
-# Cobertura de testes
-pnpm run test:cov
+curl -X POST http://localhost:3000/auth/bootstrap-admin \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "admin@exemplo.com",
+    "password": "admin123456",
+    "name": "Administrador"
+  }'
 ```
 
-## 📋 Endpoints da API
+### 2. Fazer login
+```bash
+curl -X POST http://localhost:3000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "admin@exemplo.com",
+    "password": "admin123456"
+  }'
+```
 
-### Autenticação
-- `POST /auth/register` - Registro de usuário
-- `POST /auth/login` - Login de usuário
-
-### Produtos
-- `GET /products` - Listar produtos
-- `GET /products/:id` - Buscar produto por ID
-- `POST /products` - Criar produto
-- `PUT /products/:id` - Atualizar produto
-- `DELETE /products/:id` - Deletar produto
-
-### Carrinho
-- `GET /cart` - Ver carrinho do usuário
-- `POST /cart` - Adicionar item ao carrinho
-- `PUT /cart/:id` - Atualizar quantidade do item
-- `DELETE /cart/:id` - Remover item do carrinho
-
-### Pedidos
-- `POST /orders` - Finalizar compra
-- `GET /orders` - Listar pedidos do usuário
-- `GET /orders/:id` - Detalhes do pedido
+### 3. Criar um produto
+```bash
+curl -X POST http://localhost:3000/products \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer SEU_TOKEN_AQUI" \
+  -d '{
+    "name": "MacBook Air M2",
+    "description": "Notebook Apple com chip M2",
+    "price": 1299.99,
+    "stock": 10,
+    "imageUrl": "https://exemplo.com/macbook.jpg"
+  }'
+```
+Veja a documentação fornecida para explorar mais funcionalidades :)
 
