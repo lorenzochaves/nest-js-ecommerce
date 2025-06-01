@@ -78,7 +78,38 @@ export class AuthService {
     };
   }
 
-  // métodos privados pra ficar mais organizado e facilitar testes unitários futuramente...
+  async bootstrapFirstAdmin(email: string, password: string, name: string) {
+    const existingAdmin = await this.prisma.user.findFirst({
+      where: { role: 'ADMIN' },
+    });
+
+    if (existingAdmin) {
+      throw new ConflictException('Admin user already exists. Use the regular create-admin endpoint.');
+    }
+
+    await this.checkEmailExists(email);
+    const hashedPassword = await this.hashPassword(password);
+
+    const admin = await this.prisma.user.create({
+      data: {
+        email,
+        password: hashedPassword,
+        name,
+        role: 'ADMIN',
+      },
+    });
+
+    return {
+      message: 'First admin created successfully. This endpoint is now disabled.',
+      admin: {
+        id: admin.id,
+        email: admin.email,
+        name: admin.name,
+        role: admin.role,
+      },
+    };
+  }
+
   private async checkEmailExists(email: string): Promise<void> {
     const existingUser = await this.prisma.user.findUnique({
       where: { email },

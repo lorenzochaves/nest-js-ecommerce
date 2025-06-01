@@ -26,4 +26,10 @@ export class AuthController {
     const { email, password, name } = createAdminDto;
     return this.authService.createAdmin(email, password, name);
   }
+
+  @Post('bootstrap-admin')
+  async bootstrapAdmin(@Body() createAdminDto: CreateAdminDto) {
+    const { email, password, name } = createAdminDto;
+    return this.authService.bootstrapFirstAdmin(email, password, name);
+  }
 }

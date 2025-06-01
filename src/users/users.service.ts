@@ -9,64 +9,28 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
 import * as bcrypt from 'bcryptjs';
 
+const BCRYPT_ROUNDS = 12;
+
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  // Obter perfil do usuário logado
   async getProfile(userId: number) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-      },
-    });
-
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    return user;
+    const user = await this.findUserById(userId);
+    return this.selectUserFields(user);
   }
 
-  // Atualizar perfil do usuário
   async updateProfile(userId: number, updateProfileDto: UpdateProfileDto) {
     const { name, email, password } = updateProfileDto;
+    const existingUser = await this.findUserById(userId);
 
-    // Verificar se usuário existe
-    const existingUser = await this.prisma.user.findUnique({
-      where: { id: userId },
-    });
-
-    if (!existingUser) {
-      throw new NotFoundException('User not found');
-    }
-
-    // Se está alterando email, verificar se já existe
     if (email && email !== existingUser.email) {
-      const emailExists = await this.prisma.user.findUnique({
-        where: { email },
-      });
-
-      if (emailExists) {
-        throw new ConflictException('Email already in use');
-      }
+      await this.checkEmailAvailability(email);
     }
 
-    // Preparar dados para atualização
-    const updateData: any = {};
-    
-    if (name) updateData.name = name;
-    if (email) updateData.email = email;
-    if (password) {
-      updateData.password = await bcrypt.hash(password, 10);
-    }
+    const updateData = await this.buildUpdateData({ name, email, password });
 
-    // Atualizar usuário
-    const updatedUser = await this.prisma.user.update({
+    return await this.prisma.user.update({
       where: { id: userId },
       data: updateData,
       select: {
@@ -76,11 +40,8 @@ export class UsersService {
         role: true,
       },
     });
-
-    return updatedUser;
   }
 
-  // Listar todos os usuários (admin only)
   async getAllUsers(page: number = 1, limit: number = 10) {
     const skip = (page - 1) * limit;
 
@@ -101,16 +62,10 @@ export class UsersService {
 
     return {
       users,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit),
-      },
+      pagination: this.buildPaginationResponse(page, limit, total),
     };
   }
 
-  // Obter usuário por ID (admin only)
   async getUserById(userId: number) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -135,32 +90,13 @@ export class UsersService {
     return user;
   }
 
-  // Atualizar role do usuário (admin only)
   async updateUserRole(userId: number, updateUserRoleDto: UpdateUserRoleDto) {
     const { role } = updateUserRoleDto;
+    const existingUser = await this.findUserById(userId);
 
-    // Verificar se usuário existe
-    const existingUser = await this.prisma.user.findUnique({
-      where: { id: userId },
-    });
+    await this.validateAdminRoleChange(existingUser, role);
 
-    if (!existingUser) {
-      throw new NotFoundException('User not found');
-    }
-
-    // Não permitir que o último admin seja rebaixado
-    if (existingUser.role === 'ADMIN' && role === 'CLIENT') {
-      const adminCount = await this.prisma.user.count({
-        where: { role: 'ADMIN' },
-      });
-
-      if (adminCount <= 1) {
-        throw new BadRequestException('Cannot remove the last admin user');
-      }
-    }
-
-    // Atualizar role
-    const updatedUser = await this.prisma.user.update({
+    return await this.prisma.user.update({
       where: { id: userId },
       data: { role },
       select: {
@@ -170,44 +106,17 @@ export class UsersService {
         role: true,
       },
     });
-
-    return updatedUser;
   }
 
-  // Deletar usuário (admin only)
   async deleteUser(userId: number) {
-    // Verificar se usuário existe
-    const existingUser = await this.prisma.user.findUnique({
-      where: { id: userId },
-    });
+    const existingUser = await this.findUserById(userId);
+    await this.validateAdminDeletion(existingUser);
 
-    if (!existingUser) {
-      throw new NotFoundException('User not found');
-    }
-
-    // Não permitir deletar o último admin
-    if (existingUser.role === 'ADMIN') {
-      const adminCount = await this.prisma.user.count({
-        where: { role: 'ADMIN' },
-      });
-
-      if (adminCount <= 1) {
-        throw new BadRequestException('Cannot delete the last admin user');
-      }
-    }
-
-    // Usar transação para deletar usuário e dados relacionados
     await this.prisma.$transaction(async (prisma) => {
-      // Deletar itens do carrinho
       await prisma.cartItem.deleteMany({
         where: { userId },
       });
 
-      // Note: Orders são mantidos para histórico, apenas desvinculados
-      // Se quiser deletar orders também, descomente a linha abaixo:
-      // await prisma.order.deleteMany({ where: { userId } });
-
-      // Deletar usuário
       await prisma.user.delete({
         where: { id: userId },
       });
@@ -216,7 +125,6 @@ export class UsersService {
     return { message: 'User deleted successfully' };
   }
 
-  // Obter estatísticas de usuários (admin only)
   async getUserStats() {
     const [totalUsers, adminUsers, clientUsers] = await Promise.all([
       this.prisma.user.count(),
@@ -229,5 +137,81 @@ export class UsersService {
       adminUsers,
       clientUsers,
     };
+  }
+
+  private async findUserById(userId: number) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    return user;
+  }
+
+  private selectUserFields(user: any) {
+    return {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+    };
+  }
+
+  private async checkEmailAvailability(email: string) {
+    const emailExists = await this.prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (emailExists) {
+      throw new ConflictException('Email already in use');
+    }
+  }
+
+  private async buildUpdateData(data: { name?: string; email?: string; password?: string }) {
+    const updateData: any = {};
+    
+    if (data.name) updateData.name = data.name;
+    if (data.email) updateData.email = data.email;
+    if (data.password) {
+      updateData.password = await bcrypt.hash(data.password, BCRYPT_ROUNDS);
+    }
+
+    return updateData;
+  }
+
+  private buildPaginationResponse(page: number, limit: number, total: number) {
+    return {
+      page,
+      limit,
+      total,
+      pages: Math.ceil(total / limit),
+    };
+  }
+
+  private async validateAdminRoleChange(existingUser: any, newRole: string) {
+    if (existingUser.role === 'ADMIN' && newRole === 'CLIENT') {
+      const adminCount = await this.prisma.user.count({
+        where: { role: 'ADMIN' },
+      });
+
+      if (adminCount <= 1) {
+        throw new BadRequestException('Cannot remove the last admin user');
+      }
+    }
+  }
+
+  private async validateAdminDeletion(existingUser: any) {
+    if (existingUser.role === 'ADMIN') {
+      const adminCount = await this.prisma.user.count({
+        where: { role: 'ADMIN' },
+      });
+
+      if (adminCount <= 1) {
+        throw new BadRequestException('Cannot delete the last admin user');
+      }
+    }
   }
 }

@@ -2,17 +2,17 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class ProductsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async create(createProductDto: CreateProductDto) {
     try {
-      const product = await this.prisma.product.create({
+      return await this.prisma.product.create({
         data: createProductDto,
       });
-      return product;
     } catch (error) {
       throw new BadRequestException('Failed to create product');
     }
@@ -20,15 +20,7 @@ export class ProductsService {
 
   async findAll(page: number = 1, limit: number = 10, search?: string) {
     const skip = (page - 1) * limit;
-    
-    const where: any = {};
-    
-    if (search) {
-      where.OR = [
-        { name: { contains: search } },
-        { description: { contains: search } },
-      ];
-    }
+    const where = this.buildSearchFilter(search);
 
     const [products, total] = await Promise.all([
       this.prisma.product.findMany({
@@ -42,12 +34,7 @@ export class ProductsService {
 
     return {
       products,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit),
-      },
+      pagination: this.buildPaginationResponse(page, limit, total),
     };
   }
 
@@ -64,21 +51,20 @@ export class ProductsService {
   }
 
   async update(id: number, updateProductDto: UpdateProductDto) {
-    await this.findOne(id); // Check if product exists
+    await this.findOne(id);
 
     try {
-      const updatedProduct = await this.prisma.product.update({
+      return await this.prisma.product.update({
         where: { id },
         data: updateProductDto,
       });
-      return updatedProduct;
     } catch (error) {
       throw new BadRequestException('Failed to update product');
     }
   }
 
   async remove(id: number) {
-    await this.findOne(id); // Check if product exists
+    await this.findOne(id);
 
     try {
       await this.prisma.product.delete({
@@ -103,5 +89,25 @@ export class ProductsService {
         stock: product.stock - quantity,
       },
     });
+  }
+
+  private buildSearchFilter(search?: string): Prisma.ProductWhereInput {
+    if (!search) return {};
+
+    return {
+      OR: [
+        { name: { contains: search } },
+        { description: { contains: search } },
+      ],
+    };
+  }
+
+  private buildPaginationResponse(page: number, limit: number, total: number) {
+    return {
+      page,
+      limit,
+      total,
+      pages: Math.ceil(total / limit),
+    };
   }
 }

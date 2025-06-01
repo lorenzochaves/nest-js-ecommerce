@@ -23,13 +23,11 @@ import { AdminGuard } from '../auth/guards/admin.guard';
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  // Obter perfil do usuário logado
   @Get('profile')
   async getProfile(@Request() req) {
     return this.usersService.getProfile(req.user.id);
   }
 
-  // Atualizar perfil do usuário logado
   @Patch('profile')
   async updateProfile(
     @Request() req,
@@ -38,9 +36,6 @@ export class UsersController {
     return this.usersService.updateProfile(req.user.id, updateProfileDto);
   }
 
-  // === ADMIN ROUTES ===
-
-  // Listar todos os usuários (admin only)
   @Get()
   @UseGuards(AdminGuard)
   async getAllUsers(
@@ -53,14 +48,12 @@ export class UsersController {
     );
   }
 
-  // Obter usuário por ID (admin only)
   @Get(':id')
   @UseGuards(AdminGuard)
   async getUserById(@Param('id', ParseIntPipe) userId: number) {
     return this.usersService.getUserById(userId);
   }
 
-  // Atualizar role do usuário (admin only)
   @Patch(':id/role')
   @UseGuards(AdminGuard)
   async updateUserRole(
@@ -70,7 +63,6 @@ export class UsersController {
     return this.usersService.updateUserRole(userId, updateUserRoleDto);
   }
 
-  // Deletar usuário (admin only)
   @Delete(':id')
   @UseGuards(AdminGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
@@ -78,7 +70,6 @@ export class UsersController {
     await this.usersService.deleteUser(userId);
   }
 
-  // Obter estatísticas de usuários (admin only)
   @Get('admin/stats')
   @UseGuards(AdminGuard)
   async getUserStats() {
